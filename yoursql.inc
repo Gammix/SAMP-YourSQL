@@ -1,6 +1,6 @@
 /*
 * ================
-* SAMP - YourSQL (Build 3)
+* SAMP - YourSQL
 * The easiest and one of the fastest SQLITE manager, library. Requires you with no SQL knowledge!
 * ================
 *
@@ -23,10 +23,10 @@
 	native bool:yoursql_delete_row(SQL:id, const dest[], SQLRow:rowid);
 	native bool:yoursql_set_field(SQL:id, const dest[], SQLRow:rowid, set[]);
 	native bool:yoursql_set_field_int(SQL:id, const dest[], SQLRow:rowid, set);
-	native bool:yoursql_set_field_float(SQL:id, const dest[], Float:set);
+	native bool:yoursql_set_field_float(SQL:id, const dest[], SQLRow:rowid, Float:set);
 	native yoursql_get_field(SQL:id, const dest[], SQLRow:rowid, get[], maxlength = sizeof(get));
 	native yoursql_get_field_int(SQL:id, const dest[], SQLRow:rowid);
-	native Float:yoursql_get_field_float(SQL:id, const dest[]);
+	native Float:yoursql_get_field_float(SQL:id, const dest[], SQLRow:rowid);
 	native bool:yoursql_multiset_fields(SQL:id, const dest[], SQLRow:rowid, const fmat[], {_, Float}:...);
 	native bool:yoursql_multiget_fields(SQL:id, const dest[], SQLRow:rowid, const fmat[], {_, Float}:...);
 	native yoursql_num_fields(SQL:id, const dest[]);
