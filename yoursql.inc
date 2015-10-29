@@ -1131,14 +1131,14 @@ stock DBResult:yoursql_query(SQL:id, const query[], {_, Float}:...)
         return 0;
     }
 
-	if ((numargs() - 3) * 4)
+	if ((numargs() - 2) * 4)
 	{
 	    yoursql_Query[0] = EOS;
-		strcat(yoursql_Query, __returnstring(fmat, 3), MAX_DATABASE_QUERY);
+		strcat(yoursql_Query, __returnstring(query, 2), MAX_DATABASE_QUERY);
 	}
 	else
 	{
-	    strcat(yoursql_Query, fmat, MAX_DATABASE_QUERY);
+	    strcat(yoursql_Query, query, MAX_DATABASE_QUERY);
 	}
 
     new
