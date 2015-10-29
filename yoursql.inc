@@ -1,6 +1,6 @@
 /*
 * ================
-* SAMP - YourSQL
+* SAMP - YourSQL (build 4)
 * The easiest and one of the fastest SQLITE manager, library. Requires you with no SQL knowledge!
 * ================
 *
@@ -9,7 +9,7 @@
 * ================
 *
 * ================
-* Special thanks to: Slice
+* Special thanks to: Slice (for BUD include as refrence), Y_Less (for string argument functions)
 * ================
 *
 * ================
@@ -71,59 +71,12 @@
 	#define SQL_INVALID_ROW (SQLRow:-1)
 #endif
 
-public OnFilterScriptInit()
+forward __yoursql_skip_no_response();
+public 	__yoursql_skip_no_response()
 {
-	new
-	    __str[5]
- 	;
-	format(__str, sizeof(__str), "");
-	strcat(__str, "");
-	
-	#pragma unused __str
-
-	#if defined yoursql_OnFilterScriptInit
-		return yoursql_OnFilterScriptInit();
-	#else
-		return 1;
-	#endif
+	format("", 0, "");
+	strcat("", "", 0);
 }
-#if defined _ALS_OnFilterScriptInit
-	#undef OnFilterScriptInit
-#else
-	#define _ALS_OnFilterScriptInit
-#endif
-#define OnFilterScriptInit yoursql_OnFilterScriptInit
-#if defined yoursql_OnFilterScriptInit
-	forward yoursql_OnFilterScriptInit();
-#endif
-
-#if ! defined yoursql_OnFilterScriptInit
-	public OnGameModeInit()
-	{
-		new
-		    __str[5]
-	 	;
-		format(__str, sizeof(__str), "");
-		strcat(__str, "");
-
-		#pragma unused __str
-
-		#if defined yoursql_OnGameModeInit
-			return yoursql_OnGameModeInit();
-		#else
-			return 1;
-		#endif
-	}
-	#if defined _ALS_OnGameModeInit
-		#undef OnGameModeInit
-	#else
-		#define _ALS_OnGameModeInit
-	#endif
-	#define OnGameModeInit yoursql_OnGameModeInit
-	#if defined yoursql_OnGameModeInit
-		forward yoursql_OnGameModeInit();
-	#endif
-#endif
 
 enum SQLType
 {
@@ -245,12 +198,12 @@ stock static __getstringarg(dest[], arg, len = sizeof (dest))
     #emit STACK      16
 }
 
-stock static __setstringarg(arg, const value[], len = sizeof(value))
+stock static __setstringarg(arg, const value[], len = sizeof (value))
 {
 	new
 		address
 	;
-	
+
 	// Get the address of the previous function's stack.  First get the index of
     // the argument required.
     #emit LOAD.S.pri arg
@@ -287,6 +240,84 @@ stock static __setstringarg(arg, const value[], len = sizeof(value))
 
 	// Restore the stack to its level before we called this native.
 	#emit STACK      16
+}
+
+stock static __returnstring(const fmat[], STATIC_ARGS)
+{
+ 	static
+ 	    out[MAX_DATABASE_QUERY],
+		size = MAX_DATABASE_QUERY
+	;
+
+	new
+		num_args,
+		arg_start,
+		arg_end
+	;
+
+	// Get the pointer to the number of arguments to the last function.
+	#emit LOAD.S.pri   0
+	#emit ADD.C        8
+	#emit MOVE.alt
+
+	// Get the number of arguments.
+	#emit LOAD.I
+	#emit STOR.S.pri   num_args
+
+	// Get the variable arguments (end).
+	#emit ADD
+	#emit STOR.S.pri   arg_end
+
+	// Get the variable arguments (start).
+	#emit LOAD.S.pri   STATIC_ARGS
+	#emit SMUL.C       4
+	#emit ADD
+	#emit STOR.S.pri   arg_start
+
+	// Using an assembly loop here screwed the code up as the labels added some
+	// odd stack/frame manipulation code...
+	while (arg_end != arg_start)
+	{
+		#emit MOVE.pri
+		#emit LOAD.I
+		#emit PUSH.pri
+		#emit CONST.pri    4
+		#emit SUB.alt
+		#emit STOR.S.pri   arg_end
+	}
+
+	// Push the additional parameters.
+	#emit PUSH.S       fmat
+	#emit PUSH         size
+	#emit PUSH.C       out
+
+	// Push the argument count.
+	#emit LOAD.S.pri   num_args
+	#emit ADD.C        12
+	#emit LOAD.S.alt   STATIC_ARGS
+	#emit XCHG
+	#emit SMUL.C       4
+	#emit SUB.alt
+	#emit PUSH.pri
+	#emit MOVE.alt
+
+	// This gets confused if you have a local variable of the same name as it
+	// seems to factor in them first, so you get the offset of the local
+	// variable instead of the index of the native.
+	#emit SYSREQ.C     format
+
+	// Clear the stack.
+	#emit CONST.pri    4
+	#emit ADD
+	#emit MOVE.alt
+
+	// The three lines above get the total stack data size, now remove it.
+	#emit LCTRL        4
+	#emit ADD
+	#emit SCTRL        4
+
+	// Now do the real return.
+	return out;
 }
 
 stock SQL:yoursql_open(const name[])
@@ -415,63 +446,15 @@ stock SQLRow:yoursql_get_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	    return SQL_INVALID_ROW;
 	}
 
-	static const
-		STATIC_ARGS = 3,
-		BYTES_PER_CELL = 4
-	;
-	
-    new
-		n = (numargs() - STATIC_ARGS) * BYTES_PER_CELL
-	;
-
-	const
-		output_size = MAX_DATABASE_QUERY
-	;
-	
-	yoursql_Query[0] = EOS;
-	
-    if (n)
-    {
-        new
-			arg_start,
-			arg_end
-		;
-		
-        #emit CONST.alt        	fmat
-        #emit LCTRL          	5
-        #emit ADD
-        #emit STOR.S.pri        arg_start
-
-        #emit LOAD.S.alt        n
-        #emit ADD
-        #emit STOR.S.pri        arg_end
-        do
-        {
-            #emit LOAD.I
-            #emit PUSH.pri
-            arg_end -= BYTES_PER_CELL;
-            #emit LOAD.S.pri	arg_end
-        }
-        while (arg_end > arg_start);
-
-        #emit PUSH.S          	fmat
-        #emit PUSH.C           	output_size
-        #emit PUSH.ADR         	yoursql_Query
-
-        n += BYTES_PER_CELL * 3;
-        #emit PUSH.S          	n
-        #emit SYSREQ.C          format
-
-        n += BYTES_PER_CELL;
-        #emit LCTRL          	4
-        #emit LOAD.S.alt        n
-        #emit ADD
-        #emit SCTRL          	4
-    }
-    else
-    {
-        strcat(yoursql_Query, fmat, MAX_DATABASE_QUERY);
-    }
+	if ((numargs() - 3) * 4)
+	{
+	    yoursql_Query[0] = EOS;
+		strcat(yoursql_Query, __returnstring(fmat, 3), MAX_DATABASE_QUERY);
+	}
+	else
+	{
+	    strcat(yoursql_Query, fmat, MAX_DATABASE_QUERY);
+	}
 
 	new
 	    pos = strfind(yoursql_Query, "=")
@@ -492,7 +475,7 @@ stock SQLRow:yoursql_get_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
     {
         return SQL_INVALID_ROW;
     }
-    
+
 	new
 		DBResult:result
  	;
@@ -520,63 +503,15 @@ stock bool:yoursql_set_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	    return false;
 	}
 
-	static const
-		STATIC_ARGS = 3,
-		BYTES_PER_CELL = 4
-	;
-	
-    new
-		n = (numargs() - STATIC_ARGS) * BYTES_PER_CELL
-	;
-
-	const
-		output_size = MAX_DATABASE_QUERY
-	;
-	
-	yoursql_Query[0] = EOS;
-
-    if (n)
-    {
-        new
-			arg_start,
-			arg_end
-		;
-
-        #emit CONST.alt        	fmat
-        #emit LCTRL          	5
-        #emit ADD
-        #emit STOR.S.pri        arg_start
-
-        #emit LOAD.S.alt        n
-        #emit ADD
-        #emit STOR.S.pri        arg_end
-        do
-        {
-            #emit LOAD.I
-            #emit PUSH.pri
-            arg_end -= BYTES_PER_CELL;
-            #emit LOAD.S.pri	arg_end
-        }
-        while (arg_end > arg_start);
-
-        #emit PUSH.S          	fmat
-        #emit PUSH.C          	output_size
-        #emit PUSH.ADR         	yoursql_Query
-
-        n += BYTES_PER_CELL * 3;
-        #emit PUSH.S          	n
-        #emit SYSREQ.C          format
-
-        n += BYTES_PER_CELL;
-        #emit LCTRL          	4
-        #emit LOAD.S.alt        n
-        #emit ADD
-        #emit SCTRL          	4
-    }
-    else
-    {
-        strcat(yoursql_Query, fmat, MAX_DATABASE_QUERY);
-    }
+	if ((numargs() - 3) * 4)
+	{
+	    yoursql_Query[0] = EOS;
+		strcat(yoursql_Query, __returnstring(fmat, 3), MAX_DATABASE_QUERY);
+	}
+	else
+	{
+	    strcat(yoursql_Query, fmat, MAX_DATABASE_QUERY);
+	}
 
 	new
 	    pos = strfind(yoursql_Query, "=")
@@ -597,7 +532,7 @@ stock bool:yoursql_set_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
     {
         return false;
     }
-    
+
 	new
 		DBResult:   result
  	;
@@ -657,7 +592,7 @@ stock bool:yoursql_set_field(SQL:id, const dest[], SQLRow:rowid, set[])
     {
         return false;
     }
-	
+
 	new
 		DBResult:result
  	;
@@ -689,7 +624,7 @@ stock bool:yoursql_set_field_int(SQL:id, const dest[], SQLRow:rowid, set)
     {
         return false;
     }
-	
+
 	new
 		DBResult:result
  	;
@@ -716,7 +651,7 @@ stock bool:yoursql_set_field_float(SQL:id, const dest[], SQLRow:rowid, Float:set
 	{
 	    return false;
 	}
-	
+
     if (! yoursql_get_db(id))
     {
         return false;
@@ -748,7 +683,7 @@ stock bool:yoursql_get_field(SQL:id, const dest[], SQLRow:rowid, get[], maxlengt
 	{
 	    return false;
 	}
-	
+
     if (! yoursql_get_db(id))
     {
         return false;
@@ -782,7 +717,7 @@ stock yoursql_get_field_int(SQL:id, const dest[], SQLRow:rowid)
 	{
 	    return -1;
 	}
-	
+
     if (! yoursql_get_db(id))
     {
         return -1;
@@ -823,7 +758,7 @@ stock Float:yoursql_get_field_float(SQL:id, const dest[], SQLRow:rowid)
     {
         return -1000.0;
     }
-    
+
 	new
 		DBResult:result
  	;
@@ -852,7 +787,7 @@ stock bool:yoursql_multiset_fields(SQL:id, const dest[], SQLRow:rowid, const fma
 	}
 
     yoursql_Query[0] = EOS;
-	
+
 	for (new i, j = strlen(fmat); i < j; i++)
 	{
 		switch (fmat[i])
@@ -905,11 +840,11 @@ stock bool:yoursql_multiset_fields(SQL:id, const dest[], SQLRow:rowid, const fma
 				value[MAX_DATABASE_ENTRY - 1] = EOS;
 			}
 		}
-		
+
 		strcat(yoursql_Query, value);
 
 		strcat(yoursql_Query, "'");
-		
+
 		if (i < j - 1)
 		{
 			strcat(yoursql_Query, ", ");
@@ -926,7 +861,7 @@ stock bool:yoursql_multiset_fields(SQL:id, const dest[], SQLRow:rowid, const fma
     {
         return false;
     }
-    
+
 	db_free_result(db_query(yoursql_Database[id][DB_Id], yoursql_Query));
 
 	return true;
@@ -938,7 +873,7 @@ stock bool:yoursql_multiget_fields(SQL:id, const dest[], SQLRow:rowid, const fma
     {
         return false;
 	}
-				
+
 	new
 		column[MAX_DATABASE_NAME],
 		column_arg
@@ -959,7 +894,7 @@ stock bool:yoursql_multiget_fields(SQL:id, const dest[], SQLRow:rowid, const fma
 			strcat(yoursql_Query, "`, `");
 		}
 	}
-	
+
 	strcat(yoursql_Query, "` FROM `");
 	strcat(yoursql_Query, dest);
 	strcat(yoursql_Query, "` WHERE `ROW_ID` = '");
@@ -1000,7 +935,7 @@ stock bool:yoursql_multiget_fields(SQL:id, const dest[], SQLRow:rowid, const fma
    				}
 			}
 		}
-		
+
 		db_free_result(result);
 
 		return true;
@@ -1056,7 +991,7 @@ stock yoursql_num_rows(SQL:id, const dest[])
     {
         return 0;
 	}
-	
+
 	yoursql_Query[0] = EOS;
 
     new
@@ -1196,70 +1131,22 @@ stock DBResult:yoursql_query(SQL:id, const query[], {_, Float}:...)
         return 0;
     }
 
-	static const
-		STATIC_ARGS = 3,
-		BYTES_PER_CELL = 4
-	;
+	if ((numargs() - 3) * 4)
+	{
+	    yoursql_Query[0] = EOS;
+		strcat(yoursql_Query, __returnstring(fmat, 3), MAX_DATABASE_QUERY);
+	}
+	else
+	{
+	    strcat(yoursql_Query, fmat, MAX_DATABASE_QUERY);
+	}
 
-    new
-		n = (numargs() - STATIC_ARGS) * BYTES_PER_CELL,
-	;
-	
-	const
-	    output_size = MAX_DATABASE_QUERY
-	;
-	
-	yoursql_Query[0] = EOS;
-
-    if (n)
-    {
-        new
-			arg_start,
-			arg_end
-		;
-
-        #emit CONST.alt        	fmat
-        #emit LCTRL          	5
-        #emit ADD
-        #emit STOR.S.pri        arg_start
-
-        #emit LOAD.S.alt        n
-        #emit ADD
-        #emit STOR.S.pri        arg_end
-        do
-        {
-            #emit LOAD.I
-            #emit PUSH.pri
-            arg_end -= BYTES_PER_CELL;
-            #emit LOAD.S.pri	arg_end
-        }
-        while (arg_end > arg_start);
-
-        #emit PUSH.S          	fmat
-        #emit PUSH.C          	output_size
-        #emit PUSH.ADR         	yoursql_Query
-
-        n += BYTES_PER_CELL * 3;
-        #emit PUSH.S          	n
-        #emit SYSREQ.C          format
-
-        n += BYTES_PER_CELL;
-        #emit LCTRL          	4
-        #emit LOAD.S.alt        n
-        #emit ADD
-        #emit SCTRL          	4
-    }
-    else
-    {
-        strcat(yoursql_Query, fmat, MAX_DATABASE_QUERY);
-    }
-    
     new
 		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
 	;
-    
+
     SetTimerEx("OnDBQueryExpire", MAX_DATABASE_ALIVETIME, false, "ii", _:id, _:result);
-    
+
     return result;
 }
 
