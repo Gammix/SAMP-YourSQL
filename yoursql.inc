@@ -68,7 +68,7 @@
 #endif
 
 #if ! defined SQL_INVALID_ROW
-	#define SQL_INVALID_ROW (SQLRow:-1)
+	#define SQL_INVALID_ROW (SQLRow:0)
 #endif
 
 forward __yoursql_skip_no_response();
