@@ -1,6 +1,6 @@
 /*
 * ================
-* SAMP - YourSQL (build 4)
+* SAMP - YourSQL (build 5)
 * The easiest and one of the fastest SQLITE manager, library. Requires you with no SQL knowledge!
 * ================
 *
@@ -130,40 +130,21 @@ public  OnDBExpire(SQL:i)
 	yoursql_Database[i][DB_Id] = DB:0;
 }
 
-stock static yoursql_str_split(const src[], dest[][], delimeter, limit, size)
+stock static yoursql_split_in_2(const src[], str1[], str2[], const delmin[] = "=", size1 = sizeof(str1), size2 = sizeof(str2))
 {
-	new
-	    k,
-	    l
+    new
+		pos = strfind(src, delmin)
 	;
-	for (new i = 0, j = strlen(src); i <= j; i++)
-	{
-		if (src[i] == delimeter || i == j)
-		{
-			new
-			    m = strmid(dest[k], src, l, i, size)
-			;
-
-   			dest[k][m] = 0;
-
-   			l = i + 1;
-   			k += 1;
-
-   			if (k >= limit)
-   			{
-				return k;
-   			}
-		}
-	}
-
-	return k;
+	strmid(str1, src, 0, (src[pos - 1] == ' ') ? (pos - 1) : (pos), size1);
+	strmid(str2, src, (src[pos + 1] == ' ') ? (pos + 2) : (pos + 1), strlen(src), size2);
 }
 
-stock static __getstringarg(dest[], arg, len = sizeof (dest))
+stock static yoursql_getstringarg(dest[], arg, len = sizeof (dest))
 {
     // Get the address of the previous function's stack.  First get the index of
     // the argument required.
     #emit LOAD.S.pri arg
+    
     // Then convert that number to bytes from cells.
     #emit SMUL.C     4
     // Get the previous function's frame.  Stored in variable 0 (in the current
@@ -172,33 +153,45 @@ stock static __getstringarg(dest[], arg, len = sizeof (dest))
     // checks that "arg * 4 < *(*(FRM + 0) + 8)", for the previous frame parameter
     // count (in C pointer speak).
     #emit LOAD.S.alt 0
+    
     // Add the frame pointer to the argument offset in bytes.
     #emit ADD
+    
     // Add 12 to skip over the function header.
     #emit ADD.C      12
+    
     // Load the address stored in the specified address.
     #emit LOAD.I
+    
     // Push the length for "strcat".
     #emit PUSH.S     len
+    
     // Push the address we just determined was the source.
     #emit PUSH.pri
+    
     // Load the address of the destination.
     #emit LOAD.S.alt dest
+    
     // Blank the first cell so "strcat" behaves like "strcpy".
     #emit CONST.pri  0
+    
     // Store the loaded number 0 to the loaded address.
     #emit STOR.I
+    
     // Push the loaded address.
     #emit PUSH.alt
+    
     // Push the number of parameters passed (in bytes) to the function.
     #emit PUSH.C     12
+    
     // Call the function.
     #emit SYSREQ.C   strcat
+    
     // Restore the stack to its level before we called this native.
     #emit STACK      16
 }
 
-stock static __setstringarg(arg, const value[], len = sizeof (value))
+stock static yoursql_setstringarg(arg, const value[], len = sizeof (value))
 {
 	new
 		address
@@ -207,14 +200,19 @@ stock static __setstringarg(arg, const value[], len = sizeof (value))
 	// Get the address of the previous function's stack.  First get the index of
     // the argument required.
     #emit LOAD.S.pri arg
+    
     // Then convert that number to bytes from cells.
     #emit SMUL.C     4
+    
     // Get the previous function's frame.
 	#emit LOAD.S.alt 0
+	
 	// Add the frame pointer to the argument offset in bytes.
     #emit ADD
+    
     // Add 12 to skip over the function header.
     #emit ADD.C      12
+    
     // Load the address stored in the specified address.
     #emit LOAD.I
 	#emit STOR.S.PRI address
@@ -242,7 +240,7 @@ stock static __setstringarg(arg, const value[], len = sizeof (value))
 	#emit STACK      16
 }
 
-stock static __returnstring(const fmat[], STATIC_ARGS)
+stock static yoursql_returnstringarg(const fmat[], STATIC_ARGS)
 {
  	static
  	    out[MAX_DATABASE_QUERY],
@@ -383,7 +381,7 @@ stock bool:yoursql_verify_column(SQL:id, const dest[], SQLType:type, {_, Float}:
     new
         split[2][MAX_DATABASE_NAME * 2]
 	;
-	yoursql_str_split(dest, split, '/', 2, MAX_DATABASE_NAME);
+	yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
 	if (! split[0][0] || ! split[1][0])
 	{
 	    return false;
@@ -403,7 +401,7 @@ stock bool:yoursql_verify_column(SQL:id, const dest[], SQLType:type, {_, Float}:
 			;
 			if (numargs() == 4)
 			{
-				__getstringarg(default_value, 3);
+				yoursql_getstringarg(default_value, 3);
 				default_value[MAX_DATABASE_ENTRY - 1] = EOS;
 			}
 
@@ -449,7 +447,7 @@ stock SQLRow:yoursql_get_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	if ((numargs() - 3) * 4)
 	{
 	    yoursql_Query[0] = EOS;
-		strcat(yoursql_Query, __returnstring(fmat, 3), MAX_DATABASE_QUERY);
+		strcat(yoursql_Query, yoursql_returnstringarg(fmat, 3), MAX_DATABASE_QUERY);
 	}
 	else
 	{
@@ -468,8 +466,7 @@ stock SQLRow:yoursql_get_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	    column[MAX_DATABASE_NAME],
 	    value[MAX_DATABASE_ENTRY]
 	;
-	strmid(column, yoursql_Query, 0, (yoursql_Query[pos - 1] == ' ') ? (pos - 1) : (pos), MAX_DATABASE_NAME);
-	strmid(value, yoursql_Query, (yoursql_Query[pos + 1] == ' ') ? (pos + 2) : (pos + 1), strlen(yoursql_Query), MAX_DATABASE_ENTRY);
+    yoursql_split_in_2(yoursql_Query, column, value, "=", MAX_DATABASE_NAME, MAX_DATABASE_ENTRY);
 
     if (! yoursql_get_db(id))
     {
@@ -484,6 +481,11 @@ stock SQLRow:yoursql_get_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
 	if (result)
 	{
+	    if (db_num_rows(result) < 1)
+	    {
+	        return SQL_INVALID_ROW;
+	    }
+
 		new
 			rowid = db_get_field_int(result, 0)
 		;
@@ -506,7 +508,7 @@ stock bool:yoursql_set_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	if ((numargs() - 3) * 4)
 	{
 	    yoursql_Query[0] = EOS;
-		strcat(yoursql_Query, __returnstring(fmat, 3), MAX_DATABASE_QUERY);
+		strcat(yoursql_Query, yoursql_returnstringarg(fmat, 3), MAX_DATABASE_QUERY);
 	}
 	else
 	{
@@ -525,8 +527,7 @@ stock bool:yoursql_set_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	    column[MAX_DATABASE_NAME],
 	    value[MAX_DATABASE_ENTRY]
 	;
-	strmid(column, yoursql_Query, 0, (yoursql_Query[pos - 1] == ' ') ? (pos - 1) : (pos), MAX_DATABASE_NAME);
-	strmid(value, yoursql_Query, (yoursql_Query[pos + 1] == ' ') ? (pos + 2) : (pos + 1), strlen(yoursql_Query), MAX_DATABASE_ENTRY);
+    yoursql_split_in_2(yoursql_Query, column, value, "=", MAX_DATABASE_NAME, MAX_DATABASE_ENTRY);
 
     if (! yoursql_get_db(id))
     {
@@ -582,7 +583,7 @@ stock bool:yoursql_set_field(SQL:id, const dest[], SQLRow:rowid, set[])
     new
         split[2][MAX_DATABASE_NAME]
 	;
-	yoursql_str_split(dest, split, '/', 2, MAX_DATABASE_NAME);
+    yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
 	if (! split[0][0] || ! split[1][0])
 	{
 	    return false;
@@ -614,7 +615,7 @@ stock bool:yoursql_set_field_int(SQL:id, const dest[], SQLRow:rowid, set)
     new
         split[2][MAX_DATABASE_NAME]
 	;
-	yoursql_str_split(dest, split, '/', 2, MAX_DATABASE_NAME);
+    yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
 	if (! split[0][0] || ! split[1][0])
 	{
 	    return false;
@@ -646,7 +647,7 @@ stock bool:yoursql_set_field_float(SQL:id, const dest[], SQLRow:rowid, Float:set
     new
         split[2][MAX_DATABASE_NAME]
 	;
-	yoursql_str_split(dest, split, '/', 2, MAX_DATABASE_NAME);
+    yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
 	if (! split[0][0] || ! split[1][0])
 	{
 	    return false;
@@ -678,7 +679,7 @@ stock bool:yoursql_get_field(SQL:id, const dest[], SQLRow:rowid, get[], maxlengt
     new
         split[2][MAX_DATABASE_NAME]
 	;
-	yoursql_str_split(dest, split, '/', 2, MAX_DATABASE_NAME);
+    yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
 	if (! split[0][0] || ! split[1][0])
 	{
 	    return false;
@@ -712,7 +713,7 @@ stock yoursql_get_field_int(SQL:id, const dest[], SQLRow:rowid)
     new
         split[2][MAX_DATABASE_NAME]
 	;
-	yoursql_str_split(dest, split, '/', 2, MAX_DATABASE_NAME);
+    yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
 	if (! split[0][0] || ! split[1][0])
 	{
 	    return -1;
@@ -748,7 +749,7 @@ stock Float:yoursql_get_field_float(SQL:id, const dest[], SQLRow:rowid)
     new
         split[2][MAX_DATABASE_NAME]
 	;
-	yoursql_str_split(dest, split, '/', 2, MAX_DATABASE_NAME);
+    yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
 	if (! split[0][0] || ! split[1][0])
 	{
 	    return -1000.0;
@@ -816,7 +817,7 @@ stock bool:yoursql_multiset_fields(SQL:id, const dest[], SQLRow:rowid, const fma
 	{
 		column_arg = 4 + i * 2;
 
-		__getstringarg(column, column_arg);
+		yoursql_getstringarg(column, column_arg);
 
 		++column_arg;
 
@@ -836,7 +837,7 @@ stock bool:yoursql_multiset_fields(SQL:id, const dest[], SQLRow:rowid, const fma
 			}
 			case 's':
 			{
-				__getstringarg(value, column_arg, MAX_DATABASE_ENTRY);
+				yoursql_getstringarg(value, column_arg, MAX_DATABASE_ENTRY);
 				value[MAX_DATABASE_ENTRY - 1] = EOS;
 			}
 		}
@@ -885,7 +886,7 @@ stock bool:yoursql_multiget_fields(SQL:id, const dest[], SQLRow:rowid, const fma
 	{
 		column_arg = 4 + i * 2;
 
-		__getstringarg(column, column_arg);
+		yoursql_getstringarg(column, column_arg);
 
 		strcat(yoursql_Query, column);
 
@@ -931,7 +932,7 @@ stock bool:yoursql_multiget_fields(SQL:id, const dest[], SQLRow:rowid, const fma
 				case 's':
 				{
 					db_get_field(result, i, yoursql_Query, MAX_DATABASE_ENTRY);
-					__setstringarg((4 + i * 2) + 1, yoursql_Query);
+					yoursql_setstringarg((4 + i * 2) + 1, yoursql_Query);
    				}
 			}
 		}
@@ -1031,7 +1032,7 @@ stock yoursql_sort_int(SQL:id, const dest[], keys[], values[], limit = sizeof(ke
     new
         split[2][MAX_DATABASE_NAME]
 	;
-	yoursql_str_split(dest, split, '/', 2, MAX_DATABASE_NAME);
+    yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
 	if (! split[0][0] || ! split[1][0])
 	{
 	    return 0;
@@ -1085,7 +1086,7 @@ stock yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], limit = s
     new
         split[2][MAX_DATABASE_NAME]
 	;
-	yoursql_str_split(dest, split, '/', 2, MAX_DATABASE_NAME);
+    yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
 	if (! split[0][0] || ! split[1][0])
 	{
 	    return 0;
@@ -1131,14 +1132,14 @@ stock DBResult:yoursql_query(SQL:id, const query[], {_, Float}:...)
         return 0;
     }
 
-	if ((numargs() - 2) * 4)
+	if ((numargs() - 3) * 4)
 	{
 	    yoursql_Query[0] = EOS;
-		strcat(yoursql_Query, __returnstring(query, 2), MAX_DATABASE_QUERY);
+		strcat(yoursql_Query, yoursql_returnstringarg(fmat, 3), MAX_DATABASE_QUERY);
 	}
 	else
 	{
-	    strcat(yoursql_Query, query, MAX_DATABASE_QUERY);
+	    strcat(yoursql_Query, fmat, MAX_DATABASE_QUERY);
 	}
 
     new
