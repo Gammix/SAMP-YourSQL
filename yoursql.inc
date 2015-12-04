@@ -1,6 +1,6 @@
 /*
 * ================
-* SAMP - YourSQL (build 5)
+* SAMP - YourSQL (build 4)
 * The easiest and one of the fastest SQLITE manager, library. Requires you with no SQL knowledge!
 * ================
 *
@@ -33,7 +33,7 @@
 	native yoursql_num_rows(SQL:id, const dest[]);
 	native yoursql_sort_int(SQL:id, const dest[], keys[], values[], limit = sizeof(keys), bool:desc = true);
 	native yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], limit = sizeof(keys), bool:desc = true);
-	native DBResult:yoursql_query(SQL:id, const query[], {_, Float}:...);
+	native DBResult:yoursql_query(SQL:id, bool:keep_result, const fmat[], {_, Float}:...);
 *
 * ================
 */
@@ -144,7 +144,7 @@ stock static yoursql_getstringarg(dest[], arg, len = sizeof (dest))
     // Get the address of the previous function's stack.  First get the index of
     // the argument required.
     #emit LOAD.S.pri arg
-    
+
     // Then convert that number to bytes from cells.
     #emit SMUL.C     4
     // Get the previous function's frame.  Stored in variable 0 (in the current
@@ -153,40 +153,40 @@ stock static yoursql_getstringarg(dest[], arg, len = sizeof (dest))
     // checks that "arg * 4 < *(*(FRM + 0) + 8)", for the previous frame parameter
     // count (in C pointer speak).
     #emit LOAD.S.alt 0
-    
+
     // Add the frame pointer to the argument offset in bytes.
     #emit ADD
-    
+
     // Add 12 to skip over the function header.
     #emit ADD.C      12
-    
+
     // Load the address stored in the specified address.
     #emit LOAD.I
-    
+
     // Push the length for "strcat".
     #emit PUSH.S     len
-    
+
     // Push the address we just determined was the source.
     #emit PUSH.pri
-    
+
     // Load the address of the destination.
     #emit LOAD.S.alt dest
-    
+
     // Blank the first cell so "strcat" behaves like "strcpy".
     #emit CONST.pri  0
-    
+
     // Store the loaded number 0 to the loaded address.
     #emit STOR.I
-    
+
     // Push the loaded address.
     #emit PUSH.alt
-    
+
     // Push the number of parameters passed (in bytes) to the function.
     #emit PUSH.C     12
-    
+
     // Call the function.
     #emit SYSREQ.C   strcat
-    
+
     // Restore the stack to its level before we called this native.
     #emit STACK      16
 }
@@ -200,19 +200,19 @@ stock static yoursql_setstringarg(arg, const value[], len = sizeof (value))
 	// Get the address of the previous function's stack.  First get the index of
     // the argument required.
     #emit LOAD.S.pri arg
-    
+
     // Then convert that number to bytes from cells.
     #emit SMUL.C     4
-    
+
     // Get the previous function's frame.
 	#emit LOAD.S.alt 0
-	
+
 	// Add the frame pointer to the argument offset in bytes.
     #emit ADD
-    
+
     // Add 12 to skip over the function header.
     #emit ADD.C      12
-    
+
     // Load the address stored in the specified address.
     #emit LOAD.I
 	#emit STOR.S.PRI address
@@ -1125,17 +1125,17 @@ stock yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], limit = s
 	return 0;
 }
 
-stock DBResult:yoursql_query(SQL:id, const query[], {_, Float}:...)
+stock DBResult:yoursql_query(SQL:id, bool:keep_result, const fmat[], {_, Float}:...)
 {
     if (! yoursql_get_db(id))
     {
-        return 0;
+        return DBResult:0;
     }
 
-	if ((numargs() - 3) * 4)
+	if ((numargs() - 2) * 4)
 	{
 	    yoursql_Query[0] = EOS;
-		strcat(yoursql_Query, yoursql_returnstringarg(fmat, 3), MAX_DATABASE_QUERY);
+		strcat(yoursql_Query, yoursql_returnstringarg(fmat, 2), MAX_DATABASE_QUERY);
 	}
 	else
 	{
@@ -1145,10 +1145,22 @@ stock DBResult:yoursql_query(SQL:id, const query[], {_, Float}:...)
     new
 		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
 	;
-
-    SetTimerEx("OnDBQueryExpire", MAX_DATABASE_ALIVETIME, false, "ii", _:id, _:result);
-
+    if (! keep_result)
+	{
+		SetTimerEx("OnDBQueryExpire", MAX_DATABASE_ALIVETIME, false, "i", _:result);
+	}
+	else
+	{
+	    db_free_result(result);
+	}
+	
     return result;
+}
+
+forward OnDBQueryExpire(DBResult:result);
+public OnDBQueryExpire(DBResult:result)
+{
+    db_free_result(result);
 }
 
 #undef MAX_DATABASE_FILES
