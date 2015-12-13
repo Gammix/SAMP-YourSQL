@@ -1,6 +1,6 @@
 /*
 * ================
-* SAMP - YourSQL (build 4)
+* SAMP - YourSQL (build 5)
 * The easiest and one of the fastest SQLITE manager, library. Requires you with no SQL knowledge!
 * ================
 *
@@ -17,22 +17,25 @@
 	native SQL:yoursql_open(const name[]);
 	native bool:yoursql_close(SQL:id);
 	native bool:yoursql_verify_table(SQL:id, const table[]);
+	native bool:yoursql_drop_table(SQL:id, const table[]);
 	native bool:yoursql_verify_column(SQL:id, const dest[], SQLType:type, {_, Float}:...);
-	native SQLRow:yoursql_get_row(SQL:id, const dest[], const fmat[], {_, Float}:...);
-	native bool:yoursql_set_row(SQL:id, const dest[], const fmat[], {_, Float}:...);
-	native bool:yoursql_delete_row(SQL:id, const dest[], SQLRow:rowid);
+	native SQLRow:yoursql_get_row(SQL:id, const table[], const fmat[], {_, Float}:...);
+	native bool:yoursql_set_row(SQL:id, const table[], const fmat[], {_, Float}:...);
+	native bool:yoursql_delete_row(SQL:id, const table[], SQLRow:rowid);
 	native bool:yoursql_set_field(SQL:id, const dest[], SQLRow:rowid, set[]);
 	native bool:yoursql_set_field_int(SQL:id, const dest[], SQLRow:rowid, set);
 	native bool:yoursql_set_field_float(SQL:id, const dest[], SQLRow:rowid, Float:set);
 	native yoursql_get_field(SQL:id, const dest[], SQLRow:rowid, get[], maxlength = sizeof(get));
 	native yoursql_get_field_int(SQL:id, const dest[], SQLRow:rowid);
 	native Float:yoursql_get_field_float(SQL:id, const dest[], SQLRow:rowid);
-	native bool:yoursql_multiset_fields(SQL:id, const dest[], SQLRow:rowid, const fmat[], {_, Float}:...);
-	native bool:yoursql_multiget_fields(SQL:id, const dest[], SQLRow:rowid, const fmat[], {_, Float}:...);
-	native yoursql_num_fields(SQL:id, const dest[]);
-	native yoursql_num_rows(SQL:id, const dest[]);
-	native yoursql_sort_int(SQL:id, const dest[], keys[], values[], limit = sizeof(keys), bool:desc = true);
-	native yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], limit = sizeof(keys), bool:desc = true);
+	native bool:yoursql_multiset_fields(SQL:id, const table[], SQLRow:rowid, const fmat[], {_, Float}:...);
+	native bool:yoursql_multiget_fields(SQL:id, const table[], SQLRow:rowid, const fmat[], {_, Float}:...);
+	native yoursql_num_fields(SQL:id, const table[]);
+	native yoursql_num_rows(SQL:id, const table[]);
+	native yoursql_sort_int(SQL:id, const dest[], keys[], values[], const condition[] = "", limit = sizeof(keys), bool:desc = true);
+	native yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], const condition[] = "", limit = sizeof(keys), bool:desc = true);
+	native yoursql_filter_int(SQL:id, const dest[], keys[], values[], const condition[], limit = sizeof(keys));
+	native yoursql_filter_float(SQL:id, const dest[], keys[], Float:values[], const condition[], limit = sizeof(keys));
 	native DBResult:yoursql_query(SQL:id, bool:keep_result, const fmat[], {_, Float}:...);
 *
 * ================
@@ -92,12 +95,12 @@ enum SQLDatabase
 		DB_Timer
 };
 
-stock static
+static
 	yoursql_Database[SQL:MAX_DATABASE_FILES][SQLDatabase],
 	yoursql_Query[MAX_DATABASE_QUERY]
 ;
 
-stock static bool:yoursql_get_db(SQL:id)
+static bool:yoursql_get_db(SQL:id)
 {
 	if (yoursql_Database[id][DB_Timer] == -1)
 	{
@@ -333,6 +336,7 @@ stock SQL:yoursql_open(const name[])
 	            yoursql_Database[SQL:id][DB_Name][0] = EOS;
 	            return SQL_INVALID_DB;
 	        }
+
 	        return SQL:id;
 	    }
 	}
@@ -360,7 +364,7 @@ stock bool:yoursql_close(SQL:id)
 	return true;
 }
 
-stock bool:yoursql_verify_table(SQL:id, const dest[])
+stock bool:yoursql_verify_table(SQL:id, const table[])
 {
     if (! yoursql_get_db(id))
     {
@@ -369,11 +373,45 @@ stock bool:yoursql_verify_table(SQL:id, const dest[])
 
     yoursql_Query[0] = EOS;
 	strcat(yoursql_Query, "CREATE TABLE `");
-	strcat(yoursql_Query, dest);
+	strcat(yoursql_Query, table);
 	strcat(yoursql_Query, "` (`ROW_ID` INTEGER PRIMARY KEY)");
-	db_free_result(db_query(yoursql_Database[id][DB_Id], yoursql_Query));
+	
+	new
+	    DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
+	if (result)
+	{
+		db_free_result(result);
+		
+		return true;
+	}
+	
+ 	return false;
+}
 
- 	return true;
+stock bool:yoursql_drop_table(SQL:id, const table[])
+{
+    if (! yoursql_get_db(id))
+    {
+        return false;
+    }
+
+    yoursql_Query[0] = EOS;
+	strcat(yoursql_Query, "DROP TABLE `");
+	strcat(yoursql_Query, table);
+	strcat(yoursql_Query, "`");
+	
+	new
+	    DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
+	if (result)
+	{
+		db_free_result(result);
+
+		return true;
+	}
+
+ 	return false;
 }
 
 stock bool:yoursql_verify_column(SQL:id, const dest[], SQLType:type, {_, Float}:...)
@@ -432,21 +470,30 @@ stock bool:yoursql_verify_column(SQL:id, const dest[], SQLType:type, {_, Float}:
 			format(yoursql_Query, MAX_DATABASE_QUERY, "ALTER TABLE `%s` ADD COLUMN `%s` REAL DEFAULT('%f')", split[0], split[1], default_value);
 	    }
 	}
-	db_free_result(db_query(yoursql_Database[id][DB_Id], yoursql_Query));
+	
+	new
+	    DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
+	if (result)
+	{
+		db_free_result(result);
 
- 	return true;
+		return true;
+	}
+
+ 	return false;
 }
 
-stock SQLRow:yoursql_get_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
+stock SQLRow:yoursql_get_row(SQL:id, const table[], const fmat[], {_, Float}:...)
 {
-	if (! dest[0])
+	if (! table[0])
 	{
 	    return SQL_INVALID_ROW;
 	}
 
+    yoursql_Query[0] = EOS;
 	if ((numargs() - 3) * 4)
 	{
-	    yoursql_Query[0] = EOS;
 		strcat(yoursql_Query, yoursql_returnstringarg(fmat, 3), MAX_DATABASE_QUERY);
 	}
 	else
@@ -454,31 +501,16 @@ stock SQLRow:yoursql_get_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	    strcat(yoursql_Query, fmat, MAX_DATABASE_QUERY);
 	}
 
-	new
-	    pos = strfind(yoursql_Query, "=")
-	;
-	if (pos <= 0)
-	{
-	    return SQL_INVALID_ROW;
-	}
-
-	new
-	    column[MAX_DATABASE_NAME],
-	    value[MAX_DATABASE_ENTRY]
-	;
-    yoursql_split_in_2(yoursql_Query, column, value, "=", MAX_DATABASE_NAME, MAX_DATABASE_ENTRY);
-
     if (! yoursql_get_db(id))
     {
         return SQL_INVALID_ROW;
     }
 
-	new
-		DBResult:result
- 	;
- 	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID` FROM `%s` WHERE `%s` = '%q'", dest, column, value);
+ 	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID` FROM `%s` WHERE %s", table, yoursql_Query);
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+ 	; 
 	if (result)
 	{
 	    if (db_num_rows(result) < 1)
@@ -498,16 +530,16 @@ stock SQLRow:yoursql_get_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	return SQL_INVALID_ROW;
 }
 
-stock bool:yoursql_set_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
+stock bool:yoursql_set_row(SQL:id, const table[], const fmat[], {_, Float}:...)
 {
-	if (! dest[0])
+	if (! table[0])
 	{
 	    return false;
 	}
 
+	yoursql_Query[0] = EOS;
 	if ((numargs() - 3) * 4)
 	{
-	    yoursql_Query[0] = EOS;
 		strcat(yoursql_Query, yoursql_returnstringarg(fmat, 3), MAX_DATABASE_QUERY);
 	}
 	else
@@ -516,30 +548,26 @@ stock bool:yoursql_set_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	}
 
 	new
-	    pos = strfind(yoursql_Query, "=")
-	;
-	if (pos <= 0)
-	{
-	    return false;
-	}
-
-	new
 	    column[MAX_DATABASE_NAME],
 	    value[MAX_DATABASE_ENTRY]
 	;
     yoursql_split_in_2(yoursql_Query, column, value, "=", MAX_DATABASE_NAME, MAX_DATABASE_ENTRY);
+
+	if (! column[0] || ! value[0])
+	{
+	    return false;
+	}
 
     if (! yoursql_get_db(id))
     {
         return false;
     }
 
-	new
-		DBResult:   result
- 	;
- 	format(yoursql_Query, MAX_DATABASE_QUERY, "INSERT INTO `%s` (`%s`) VALUES('%q')", dest, column, value);
+ 	format(yoursql_Query, MAX_DATABASE_QUERY, "INSERT INTO `%s` (`%s`) VALUES('%q')", table, column, value);
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		db_free_result(result);
@@ -550,9 +578,9 @@ stock bool:yoursql_set_row(SQL:id, const dest[], const fmat[], {_, Float}:...)
 	return false;
 }
 
-stock bool:yoursql_delete_row(SQL:id, const dest[], SQLRow:rowid)
+stock bool:yoursql_delete_row(SQL:id, const table[], SQLRow:rowid)
 {
-    if (! dest[0])
+    if (! table[0])
     {
 		return false;
     }
@@ -562,12 +590,11 @@ stock bool:yoursql_delete_row(SQL:id, const dest[], SQLRow:rowid)
         return false;
     }
 
-	new
-		DBResult:result
- 	;
- 	format(yoursql_Query, MAX_DATABASE_QUERY, "DELETE FROM `%s` WHERE `ROW_ID` = '%i'", dest, _:rowid);
+ 	format(yoursql_Query, MAX_DATABASE_QUERY, "DELETE FROM `%s` WHERE `ROW_ID` = '%i'", table, _:rowid);
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		db_free_result(result);
@@ -594,12 +621,11 @@ stock bool:yoursql_set_field(SQL:id, const dest[], SQLRow:rowid, set[])
         return false;
     }
 
-	new
-		DBResult:result
- 	;
  	format(yoursql_Query, MAX_DATABASE_QUERY, "UPDATE `%s` SET `%s` = '%q' WHERE `ROW_ID` = '%d'", split[0], split[1], set, _:rowid);
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		db_free_result(result);
@@ -626,12 +652,11 @@ stock bool:yoursql_set_field_int(SQL:id, const dest[], SQLRow:rowid, set)
         return false;
     }
 
-	new
-		DBResult:result
- 	;
  	format(yoursql_Query, MAX_DATABASE_QUERY, "UPDATE `%s` SET `%s` = '%d' WHERE `ROW_ID` = '%d'", split[0], split[1], set, _:rowid);
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		db_free_result(result);
@@ -658,12 +683,11 @@ stock bool:yoursql_set_field_float(SQL:id, const dest[], SQLRow:rowid, Float:set
         return false;
     }
 
-	new
-		DBResult:result
- 	;
  	format(yoursql_Query, MAX_DATABASE_QUERY, "UPDATE `%s` SET `%s` = '%f' WHERE `ROW_ID` = '%d'", split[0], split[1], set, _:rowid);
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		db_free_result(result);
@@ -689,13 +713,12 @@ stock bool:yoursql_get_field(SQL:id, const dest[], SQLRow:rowid, get[], maxlengt
     {
         return false;
     }
-
-	new
-		DBResult:result
- 	;
+    
  	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `%s` FROM `%s` WHERE `ROW_ID` = '%d'", split[1], split[0], _:rowid);
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 	    db_get_field(result, 0, get, maxlength);
@@ -724,12 +747,11 @@ stock yoursql_get_field_int(SQL:id, const dest[], SQLRow:rowid)
         return -1;
     }
 
-	new
-		DBResult:result
- 	;
  	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `%s` FROM `%s` WHERE `ROW_ID` = '%d'", split[1], split[0], _:rowid);
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		new
@@ -760,12 +782,11 @@ stock Float:yoursql_get_field_float(SQL:id, const dest[], SQLRow:rowid)
         return -1000.0;
     }
 
-	new
-		DBResult:result
- 	;
  	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `%s` FROM `%s` WHERE `ROW_ID` = '%d'", split[1], split[0], _:rowid);
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		new
@@ -780,9 +801,9 @@ stock Float:yoursql_get_field_float(SQL:id, const dest[], SQLRow:rowid)
 	return -1000.0;
 }
 
-stock bool:yoursql_multiset_fields(SQL:id, const dest[], SQLRow:rowid, const fmat[], {_, Float}:...)
+stock bool:yoursql_multiset_fields(SQL:id, const table[], SQLRow:rowid, const fmat[], {_, Float}:...)
 {
-    if (! dest[0])
+    if (! table[0])
     {
         return false;
 	}
@@ -810,7 +831,7 @@ stock bool:yoursql_multiset_fields(SQL:id, const dest[], SQLRow:rowid, const fma
 	;
 
 	yoursql_Query = "UPDATE `";
-	strcat(yoursql_Query, dest);
+	strcat(yoursql_Query, table);
 	strcat(yoursql_Query, "` SET ");
 
 	for (new i, j = strlen(fmat); i < j; i++)
@@ -863,14 +884,22 @@ stock bool:yoursql_multiset_fields(SQL:id, const dest[], SQLRow:rowid, const fma
         return false;
     }
 
-	db_free_result(db_query(yoursql_Database[id][DB_Id], yoursql_Query));
+	new
+	    DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
+	if (result)
+	{
+		db_free_result(result);
 
-	return true;
+		return true;
+	}
+
+ 	return false;
 }
 
-stock bool:yoursql_multiget_fields(SQL:id, const dest[], SQLRow:rowid, const fmat[], {_, Float}:...)
+stock bool:yoursql_multiget_fields(SQL:id, const table[], SQLRow:rowid, const fmat[], {_, Float}:...)
 {
-    if (! dest[0])
+    if (! table[0])
     {
         return false;
 	}
@@ -897,7 +926,7 @@ stock bool:yoursql_multiget_fields(SQL:id, const dest[], SQLRow:rowid, const fma
 	}
 
 	strcat(yoursql_Query, "` FROM `");
-	strcat(yoursql_Query, dest);
+	strcat(yoursql_Query, table);
 	strcat(yoursql_Query, "` WHERE `ROW_ID` = '");
 
 	new
@@ -945,28 +974,27 @@ stock bool:yoursql_multiget_fields(SQL:id, const dest[], SQLRow:rowid, const fma
 	return false;
 }
 
-stock yoursql_num_fields(SQL:id, const dest[])
+stock yoursql_num_fields(SQL:id, const table[])
 {
+    if (! table[0])
+    {
+        return 0;
+	}
+
     if (! yoursql_get_db(id))
     {
         return 0;
     }
 
-    if (! dest[0])
-    {
-        return 0;
-	}
-
     yoursql_Query[0] = EOS;
 
-    new
-		DBResult:result
- 	;
  	strcat(yoursql_Query, "SELECT * FROM `");
-	strcat(yoursql_Query, dest);
+	strcat(yoursql_Query, table);
 	strcat(yoursql_Query, "` WHERE 1");
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		new
@@ -981,28 +1009,27 @@ stock yoursql_num_fields(SQL:id, const dest[])
 	return 0;
 }
 
-stock yoursql_num_rows(SQL:id, const dest[])
+stock yoursql_num_rows(SQL:id, const table[])
 {
+    if (! table[0])
+    {
+        return 0;
+	}
+
     if (! yoursql_get_db(id))
     {
         return 0;
     }
 
-    if (! dest[0])
-    {
-        return 0;
-	}
-
 	yoursql_Query[0] = EOS;
 
-    new
-		DBResult:result
- 	;
  	strcat(yoursql_Query, "SELECT * FROM `");
-	strcat(yoursql_Query, dest);
+	strcat(yoursql_Query, table);
 	strcat(yoursql_Query, "` WHERE 1");
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		new
@@ -1017,13 +1044,8 @@ stock yoursql_num_rows(SQL:id, const dest[])
 	return 0;
 }
 
-stock yoursql_sort_int(SQL:id, const dest[], keys[], values[], limit = sizeof(keys), bool:desc = true)
+stock yoursql_sort_int(SQL:id, const dest[], keys[], values[], const condition[] = "", limit = sizeof(keys), bool:desc = true)
 {
-    if (! yoursql_get_db(id))
-    {
-        return 0;
-    }
-
     if (! dest[0])
     {
         return 0;
@@ -1038,12 +1060,23 @@ stock yoursql_sort_int(SQL:id, const dest[], keys[], values[], limit = sizeof(ke
 	    return 0;
 	}
 
-    new
-		DBResult:result
- 	;
- 	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID`, `%s` FROM `%s` ORDER BY `%s` %s LIMIT %d", split[1], split[0], split[1], (desc == true) ? ("DESC") : ("ASC"), limit);
+    if (! yoursql_get_db(id))
+    {
+        return 0;
+    }
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+ 	if (condition[0])
+ 	{
+ 		format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID`, `%s` FROM `%s` WHERE %s ORDER BY `%s` %s LIMIT %d", split[1], split[0], split[1], condition, (desc == true) ? ("DESC") : ("ASC"), limit);
+	}
+	else
+	{
+		format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID`, `%s` FROM `%s` ORDER BY `%s` %s LIMIT %d", split[1], split[0], split[1], (desc == true) ? ("DESC") : ("ASC"), limit);
+	}
+
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		if (db_num_rows(result) > 0)
@@ -1071,13 +1104,8 @@ stock yoursql_sort_int(SQL:id, const dest[], keys[], values[], limit = sizeof(ke
 	return 0;
 }
 
-stock yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], limit = sizeof(keys), bool:desc = true)
+stock yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], const condition[] = "", limit = sizeof(keys), bool:desc = true)
 {
-    if (! yoursql_get_db(id))
-    {
-        return 0;
-    }
-
     if (! dest[0])
     {
         return 0;
@@ -1092,12 +1120,23 @@ stock yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], limit = s
 	    return 0;
 	}
 
-    new
-		DBResult:result
- 	;
- 	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID`, `%s` FROM `%s` ORDER BY `%s` %s LIMIT %d", split[1], split[0], split[1], (desc == true) ? ("DESC") : ("ASC"), limit);
+    if (! yoursql_get_db(id))
+    {
+        return 0;
+    }
 
-	result = db_query(yoursql_Database[id][DB_Id], yoursql_Query);
+ 	if (condition[0])
+ 	{
+ 		format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID`, `%s` FROM `%s` WHERE %s ORDER BY `%s` %s LIMIT %d", split[1], split[0], split[1], condition, (desc == true) ? ("DESC") : ("ASC"), limit);
+	}
+	else
+	{
+		format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID`, `%s` FROM `%s` ORDER BY `%s` %s LIMIT %d", split[1], split[0], split[1], (desc == true) ? ("DESC") : ("ASC"), limit);
+	}
+
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
 	if (result)
 	{
 		if (db_num_rows(result) > 0)
@@ -1109,6 +1148,122 @@ stock yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], limit = s
 			{
 				keys[i] = db_get_field_int(result, 0);
 				values[i] = db_get_field_float(result, 1);
+
+				++i;
+			}
+			while (db_next_row(result) && i < limit);
+
+			return i;
+		}
+
+		db_free_result(result);
+
+		return 0;
+	}
+
+	return 0;
+}
+
+stock yoursql_filter_int(SQL:id, const dest[], keys[], values[], const condition[], limit = sizeof(keys))
+{
+    if (! dest[0])
+    {
+        return 0;
+	}
+
+ 	if (! condition[0])
+ 	{
+        return 0;
+	}
+
+    new
+        split[2][MAX_DATABASE_NAME]
+	;
+    yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
+	if (! split[0][0] || ! split[1][0])
+	{
+	    return 0;
+	}
+
+    if (! yoursql_get_db(id))
+    {
+        return 0;
+    }
+
+ 	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID`, `%s` FROM `%s` WHERE %s LIMIT %d", split[1], split[0], condition, limit);
+	
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
+	if (result)
+	{
+		if (db_num_rows(result) > 0)
+		{
+			new
+				i = 0
+			;
+			do
+			{
+				keys[i] = db_get_field_int(result, 0);
+				values[i] = db_get_field_int(result, 1);
+
+				++i;
+			}
+			while (db_next_row(result) && i < limit);
+
+			return i;
+		}
+
+		db_free_result(result);
+
+		return 0;
+	}
+
+	return 0;
+}
+
+stock yoursql_filter_float(SQL:id, const dest[], keys[], Float:values[], const condition[], limit = sizeof(keys))
+{
+    if (! dest[0])
+    {
+        return 0;
+	}
+
+ 	if (condition[0])
+ 	{
+        return 0;
+	}
+
+    new
+        split[2][MAX_DATABASE_NAME]
+	;
+    yoursql_split_in_2(dest, split[0], split[1], "/", MAX_DATABASE_NAME, MAX_DATABASE_NAME);
+	if (! split[0][0] || ! split[1][0])
+	{
+	    return 0;
+	}
+
+    if (! yoursql_get_db(id))
+    {
+        return 0;
+    }
+
+ 	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID`, `%s` FROM `%s` WHERE %s LIMIT %d", split[1], split[0], condition, limit);
+
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
+	if (result)
+	{
+		if (db_num_rows(result) > 0)
+		{
+			new
+				i = 0
+			;
+			do
+			{
+				keys[i] = db_get_field_int(result, 0);
+				values[i] = db_get_field_int(result, 1);
 
 				++i;
 			}
@@ -1153,7 +1308,7 @@ stock DBResult:yoursql_query(SQL:id, bool:keep_result, const fmat[], {_, Float}:
 	{
 	    db_free_result(result);
 	}
-	
+
     return result;
 }
 
