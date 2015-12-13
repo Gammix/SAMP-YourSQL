@@ -375,17 +375,17 @@ stock bool:yoursql_verify_table(SQL:id, const table[])
 	strcat(yoursql_Query, "CREATE TABLE `");
 	strcat(yoursql_Query, table);
 	strcat(yoursql_Query, "` (`ROW_ID` INTEGER PRIMARY KEY)");
-	
+
 	new
 	    DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
 	;
 	if (result)
 	{
 		db_free_result(result);
-		
+
 		return true;
 	}
-	
+
  	return false;
 }
 
@@ -400,7 +400,7 @@ stock bool:yoursql_drop_table(SQL:id, const table[])
 	strcat(yoursql_Query, "DROP TABLE `");
 	strcat(yoursql_Query, table);
 	strcat(yoursql_Query, "`");
-	
+
 	new
 	    DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
 	;
@@ -470,7 +470,7 @@ stock bool:yoursql_verify_column(SQL:id, const dest[], SQLType:type, {_, Float}:
 			format(yoursql_Query, MAX_DATABASE_QUERY, "ALTER TABLE `%s` ADD COLUMN `%s` REAL DEFAULT('%f')", split[0], split[1], default_value);
 	    }
 	}
-	
+
 	new
 	    DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
 	;
@@ -510,7 +510,7 @@ stock SQLRow:yoursql_get_row(SQL:id, const table[], const fmat[], {_, Float}:...
 
 	new
 		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
- 	; 
+ 	;
 	if (result)
 	{
 	    if (db_num_rows(result) < 1)
@@ -713,7 +713,7 @@ stock bool:yoursql_get_field(SQL:id, const dest[], SQLRow:rowid, get[], maxlengt
     {
         return false;
     }
-    
+
  	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `%s` FROM `%s` WHERE `ROW_ID` = '%d'", split[1], split[0], _:rowid);
 
 	new
@@ -1191,7 +1191,7 @@ stock yoursql_filter_int(SQL:id, const dest[], keys[], values[], const condition
     }
 
  	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID`, `%s` FROM `%s` WHERE %s LIMIT %d", split[1], split[0], condition, limit);
-	
+
 	new
 		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
 	;
@@ -1287,9 +1287,9 @@ stock DBResult:yoursql_query(SQL:id, bool:keep_result, const fmat[], {_, Float}:
         return DBResult:0;
     }
 
-	if ((numargs() - 2) * 4)
+    yoursql_Query[0] = EOS;
+	if ((numargs() - 2)* 4)
 	{
-	    yoursql_Query[0] = EOS;
 		strcat(yoursql_Query, yoursql_returnstringarg(fmat, 2), MAX_DATABASE_QUERY);
 	}
 	else
