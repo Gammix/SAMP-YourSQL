@@ -1,6 +1,6 @@
 /*
 * ================
-* SAMP - YourSQL (build 5)
+* SAMP - YourSQL (build 6)
 * The easiest and one of the fastest SQLITE manager, library. Requires you with no SQL knowledge!
 * ================
 *
@@ -16,26 +16,38 @@
 * Functions/Stocks:
 	native SQL:yoursql_open(const name[]);
 	native bool:yoursql_close(SQL:id);
+	native _
 	native bool:yoursql_verify_table(SQL:id, const table[]);
-	native bool:yoursql_drop_table(SQL:id, const table[]);
+	native bool:yoursql_delete_table(SQL:id, const table[]);
+	native _
 	native bool:yoursql_verify_column(SQL:id, const dest[], SQLType:type, {_, Float}:...);
+	native _
 	native SQLRow:yoursql_get_row(SQL:id, const table[], const fmat[], {_, Float}:...);
 	native bool:yoursql_set_row(SQL:id, const table[], const fmat[], {_, Float}:...);
+	native SQLRow:yoursql_multiget_row(SQL:id, const table[], const fmat[], {_, Float}:...);
+	native yoursql_multiset_row(SQL:id, const table[], const fmat[], {_, Float}:...);
 	native bool:yoursql_delete_row(SQL:id, const table[], SQLRow:rowid);
+	native _
 	native bool:yoursql_set_field(SQL:id, const dest[], SQLRow:rowid, set[]);
 	native bool:yoursql_set_field_int(SQL:id, const dest[], SQLRow:rowid, set);
 	native bool:yoursql_set_field_float(SQL:id, const dest[], SQLRow:rowid, Float:set);
+	native _
 	native yoursql_get_field(SQL:id, const dest[], SQLRow:rowid, get[], maxlength = sizeof(get));
 	native yoursql_get_field_int(SQL:id, const dest[], SQLRow:rowid);
 	native Float:yoursql_get_field_float(SQL:id, const dest[], SQLRow:rowid);
+	native _
 	native bool:yoursql_multiset_fields(SQL:id, const table[], SQLRow:rowid, const fmat[], {_, Float}:...);
 	native bool:yoursql_multiget_fields(SQL:id, const table[], SQLRow:rowid, const fmat[], {_, Float}:...);
+	native _
 	native yoursql_num_fields(SQL:id, const table[]);
 	native yoursql_num_rows(SQL:id, const table[]);
+	native _
 	native yoursql_sort_int(SQL:id, const dest[], keys[], values[], const condition[] = "", limit = sizeof(keys), bool:desc = true);
 	native yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], const condition[] = "", limit = sizeof(keys), bool:desc = true);
+	native _
 	native yoursql_filter_int(SQL:id, const dest[], keys[], values[], const condition[], limit = sizeof(keys));
 	native yoursql_filter_float(SQL:id, const dest[], keys[], Float:values[], const condition[], limit = sizeof(keys));
+	native _
 	native DBResult:yoursql_query(SQL:id, bool:keep_result, const fmat[], {_, Float}:...);
 *
 * ================
@@ -389,7 +401,7 @@ stock bool:yoursql_verify_table(SQL:id, const table[])
  	return false;
 }
 
-stock bool:yoursql_drop_table(SQL:id, const table[])
+stock bool:yoursql_delete_table(SQL:id, const table[])
 {
     if (! yoursql_get_db(id))
     {
@@ -440,7 +452,6 @@ stock bool:yoursql_verify_column(SQL:id, const dest[], SQLType:type, {_, Float}:
 			if (numargs() == 4)
 			{
 				yoursql_getstringarg(default_value, 3);
-				default_value[MAX_DATABASE_ENTRY - 1] = EOS;
 			}
 
 			format(yoursql_Query, MAX_DATABASE_QUERY, "ALTER TABLE `%s` ADD COLUMN `%s` TEXT DEFAULT('%q')", split[0], split[1], default_value);
@@ -501,12 +512,23 @@ stock SQLRow:yoursql_get_row(SQL:id, const table[], const fmat[], {_, Float}:...
 	    strcat(yoursql_Query, fmat, MAX_DATABASE_QUERY);
 	}
 
+	new
+	    column[MAX_DATABASE_NAME],
+	    value[MAX_DATABASE_ENTRY]
+	;
+    yoursql_split_in_2(yoursql_Query, column, value, "=", MAX_DATABASE_NAME, MAX_DATABASE_ENTRY);
+
+	if (! column[0] || ! value[0])
+	{
+	    return false;
+	}
+
     if (! yoursql_get_db(id))
     {
         return SQL_INVALID_ROW;
     }
 
- 	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID` FROM `%s` WHERE %s", table, yoursql_Query);
+ 	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID` FROM `%s` WHERE `%s` = '%q'", table, column, value);
 
 	new
 		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
@@ -564,6 +586,166 @@ stock bool:yoursql_set_row(SQL:id, const table[], const fmat[], {_, Float}:...)
     }
 
  	format(yoursql_Query, MAX_DATABASE_QUERY, "INSERT INTO `%s` (`%s`) VALUES('%q')", table, column, value);
+
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+	;
+	if (result)
+	{
+		db_free_result(result);
+
+		return true;
+	}
+
+	return false;
+}
+
+stock SQLRow:yoursql_multiget_row(SQL:id, const table[], const fmat[], {_, Float}:...)
+{
+	if (! table[0])
+	{
+	    return SQL_INVALID_ROW;
+	}
+
+	yoursql_Query = "SELECT `ROW_ID` FROM `";
+	strcat(yoursql_Query, table);
+	strcat(yoursql_Query, "` WHERE `");
+
+	new
+		column[MAX_DATABASE_NAME],
+		column_arg,
+		value[MAX_DATABASE_ENTRY * 2]
+	;
+	for (new i, j = strlen(fmat); i < j; i++)
+	{
+		column_arg = 3 + i * 2;
+
+		yoursql_getstringarg(column, column_arg);
+
+		strcat(yoursql_Query, column);
+		strcat(yoursql_Query, "` = '");
+		
+		column_arg = 4 + i * 2;
+		switch (fmat[i])
+  		{
+  		    case 'i', 'd':
+			{
+			    valstr(value, getarg(column_arg));
+			}
+  		    case 'f':
+			{
+				format(value, sizeof(value), "%f", Float:getarg(column_arg));
+			}
+			case 's':
+			{
+				yoursql_getstringarg(value, column_arg, MAX_DATABASE_ENTRY);
+			}
+		}
+		strcat(yoursql_Query, value);
+		strcat(yoursql_Query, "'");
+
+		if (i < j - 1)
+		{
+			strcat(yoursql_Query, ", `");
+		}
+	}
+
+    if (! yoursql_get_db(id))
+    {
+        return SQL_INVALID_ROW;
+    }
+
+	new
+		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
+ 	;
+	if (result)
+	{
+	    if (db_num_rows(result) < 1)
+	    {
+	        return SQL_INVALID_ROW;
+	    }
+
+		new
+			rowid = db_get_field_int(result, 0)
+		;
+
+		db_free_result(result);
+
+		return SQLRow:rowid;
+	}
+
+	return SQL_INVALID_ROW;
+}
+
+stock yoursql_multiset_row(SQL:id, const table[], const fmat[], {_, Float}:...)
+{
+	if (! table[0])
+	{
+	    return false;
+	}
+
+	yoursql_Query = "INSERT INTO `";
+	strcat(yoursql_Query, table);
+	strcat(yoursql_Query, "` (`");
+
+	new
+		column[MAX_DATABASE_NAME],
+		column_arg
+	;
+	for (new i, j = strlen(fmat); i < j; i++)
+	{
+		column_arg = 3 + i * 2;
+
+		yoursql_getstringarg(column, column_arg);
+
+		strcat(yoursql_Query, column);
+		strcat(yoursql_Query, "`");
+
+		if (i < j - 1)
+		{
+			strcat(yoursql_Query, ", `");
+		}
+	}
+
+	strcat(yoursql_Query, ") VALUES(");
+
+	new
+		value[MAX_DATABASE_ENTRY * 2]
+	;
+	for (new i, j = strlen(fmat); i < j; i++)
+	{
+		column_arg = 4 + i * 2;
+
+		strcat(yoursql_Query, "'");
+		switch (fmat[i])
+  		{
+  		    case 'i', 'd':
+			{
+			    valstr(value, getarg(column_arg));
+			}
+  		    case 'f':
+			{
+				format(value, sizeof(value), "%f", Float:getarg(column_arg));
+			}
+			case 's':
+			{
+				yoursql_getstringarg(value, column_arg, MAX_DATABASE_ENTRY);
+			}
+		}
+		strcat(yoursql_Query, value);
+		strcat(yoursql_Query, "'");
+
+		if (i < j - 1)
+		{
+			strcat(yoursql_Query, ", ");
+		}
+	}
+	strcat(yoursql_Query, ")");
+
+    if (! yoursql_get_db(id))
+    {
+        return false;
+    }
 
 	new
 		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
@@ -859,7 +1041,6 @@ stock bool:yoursql_multiset_fields(SQL:id, const table[], SQLRow:rowid, const fm
 			case 's':
 			{
 				yoursql_getstringarg(value, column_arg, MAX_DATABASE_ENTRY);
-				value[MAX_DATABASE_ENTRY - 1] = EOS;
 			}
 		}
 
