@@ -25,7 +25,7 @@
 	native SQLRow:yoursql_get_row(SQL:id, const table[], const fmat[], {_, Float}:...);
 	native bool:yoursql_set_row(SQL:id, const table[], const fmat[], {_, Float}:...);
 	native SQLRow:yoursql_multiget_row(SQL:id, const table[], const fmat[], {_, Float}:...);
-	native yoursql_multiset_row(SQL:id, const table[], const fmat[], {_, Float}:...);
+	native bool:yoursql_multiset_row(SQL:id, const table[], const fmat[], {_, Float}:...);
 	native bool:yoursql_delete_row(SQL:id, const table[], SQLRow:rowid);
 	native _
 	native bool:yoursql_set_field(SQL:id, const dest[], SQLRow:rowid, set[]);
@@ -677,7 +677,7 @@ stock SQLRow:yoursql_multiget_row(SQL:id, const table[], const fmat[], {_, Float
 	return SQL_INVALID_ROW;
 }
 
-stock yoursql_multiset_row(SQL:id, const table[], const fmat[], {_, Float}:...)
+stock bool:yoursql_multiset_row(SQL:id, const table[], const fmat[], {_, Float}:...)
 {
 	if (! table[0])
 	{
