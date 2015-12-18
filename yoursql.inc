@@ -520,7 +520,7 @@ stock SQLRow:yoursql_get_row(SQL:id, const table[], const fmat[], {_, Float}:...
 
 	if (! column[0] || ! value[0])
 	{
-	    return false;
+	    return SQL_INVALID_ROW;
 	}
 
     if (! yoursql_get_db(id))
@@ -529,7 +529,7 @@ stock SQLRow:yoursql_get_row(SQL:id, const table[], const fmat[], {_, Float}:...
     }
 
  	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID` FROM `%s` WHERE `%s` = '%q'", table, column, value);
-
+	print(yoursql_Query);
 	new
 		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
  	;
@@ -624,32 +624,34 @@ stock SQLRow:yoursql_multiget_row(SQL:id, const table[], const fmat[], {_, Float
 
 		strcat(yoursql_Query, column);
 		strcat(yoursql_Query, "` = '");
-		
+
 		column_arg = 4 + i * 2;
 		switch (fmat[i])
   		{
   		    case 'i', 'd':
 			{
 			    valstr(value, getarg(column_arg));
+				strcat(yoursql_Query, value);
 			}
   		    case 'f':
 			{
 				format(value, sizeof(value), "%f", Float:getarg(column_arg));
+				strcat(yoursql_Query, value);
 			}
 			case 's':
 			{
 				yoursql_getstringarg(value, column_arg, MAX_DATABASE_ENTRY);
+				format(yoursql_Query, sizeof(yoursql_Query), "%s%q", yoursql_Query, value);
 			}
 		}
-		strcat(yoursql_Query, value);
 		strcat(yoursql_Query, "'");
 
 		if (i < j - 1)
 		{
-			strcat(yoursql_Query, ", `");
+			strcat(yoursql_Query, " AND `");
 		}
 	}
-
+	
     if (! yoursql_get_db(id))
     {
         return SQL_INVALID_ROW;
@@ -722,17 +724,19 @@ stock bool:yoursql_multiset_row(SQL:id, const table[], const fmat[], {_, Float}:
   		    case 'i', 'd':
 			{
 			    valstr(value, getarg(column_arg));
+				strcat(yoursql_Query, value);
 			}
   		    case 'f':
 			{
 				format(value, sizeof(value), "%f", Float:getarg(column_arg));
+				strcat(yoursql_Query, value);
 			}
 			case 's':
 			{
 				yoursql_getstringarg(value, column_arg, MAX_DATABASE_ENTRY);
+				format(yoursql_Query, sizeof(yoursql_Query), "%s%q", yoursql_Query, value);
 			}
 		}
-		strcat(yoursql_Query, value);
 		strcat(yoursql_Query, "'");
 
 		if (i < j - 1)
