@@ -42,11 +42,11 @@
 	native yoursql_num_fields(SQL:id, const table[]);
 	native yoursql_num_rows(SQL:id, const table[]);
 	native _
-	native yoursql_sort_int(SQL:id, const dest[], keys[], values[], const condition[] = "", limit = sizeof(keys), bool:desc = true);
-	native yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], const condition[] = "", limit = sizeof(keys), bool:desc = true);
+	native yoursql_sort_int(SQL:id, const dest[], SQLRow:rows[], values[], const condition[] = "", limit = sizeof(rows), bool:desc = true);
+	native yoursql_sort_float(SQL:id, const dest[], SQLRow:rows[], Float:values[], const condition[] = "", limit = sizeof(rows), bool:desc = true);
 	native _
-	native yoursql_filter_int(SQL:id, const dest[], keys[], values[], const condition[], limit = sizeof(keys));
-	native yoursql_filter_float(SQL:id, const dest[], keys[], Float:values[], const condition[], limit = sizeof(keys));
+	native yoursql_filter_int(SQL:id, const dest[], SQLRow:rows[], values[], const condition[], limit = sizeof(rows));
+	native yoursql_filter_float(SQL:id, const dest[], SQLRow:rows[], Float:values[], const condition[], limit = sizeof(rows));
 	native _
 	native DBResult:yoursql_query(SQL:id, bool:keep_result, const fmat[], {_, Float}:...);
 *
@@ -529,7 +529,6 @@ stock SQLRow:yoursql_get_row(SQL:id, const table[], const fmat[], {_, Float}:...
     }
 
  	format(yoursql_Query, MAX_DATABASE_QUERY, "SELECT `ROW_ID` FROM `%s` WHERE `%s` = '%q'", table, column, value);
-	print(yoursql_Query);
 	new
 		DBResult:result = db_query(yoursql_Database[id][DB_Id], yoursql_Query)
  	;
@@ -651,7 +650,7 @@ stock SQLRow:yoursql_multiget_row(SQL:id, const table[], const fmat[], {_, Float
 			strcat(yoursql_Query, " AND `");
 		}
 	}
-	
+
     if (! yoursql_get_db(id))
     {
         return SQL_INVALID_ROW;
@@ -1229,7 +1228,7 @@ stock yoursql_num_rows(SQL:id, const table[])
 	return 0;
 }
 
-stock yoursql_sort_int(SQL:id, const dest[], keys[], values[], const condition[] = "", limit = sizeof(keys), bool:desc = true)
+stock yoursql_sort_int(SQL:id, const dest[], SQLRow:rows[], values[], const condition[] = "", limit = sizeof(rows), bool:desc = true)
 {
     if (! dest[0])
     {
@@ -1271,7 +1270,7 @@ stock yoursql_sort_int(SQL:id, const dest[], keys[], values[], const condition[]
 			;
 			do
 			{
-				keys[i] = db_get_field_int(result, 0);
+				rows[i] = SQLRow:db_get_field_int(result, 0);
 				values[i] = db_get_field_int(result, 1);
 
 				++i;
@@ -1289,7 +1288,7 @@ stock yoursql_sort_int(SQL:id, const dest[], keys[], values[], const condition[]
 	return 0;
 }
 
-stock yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], const condition[] = "", limit = sizeof(keys), bool:desc = true)
+stock yoursql_sort_float(SQL:id, const dest[], SQLRow:rows[], Float:values[], const condition[] = "", limit = sizeof(rows), bool:desc = true)
 {
     if (! dest[0])
     {
@@ -1331,7 +1330,7 @@ stock yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], const con
 			;
 			do
 			{
-				keys[i] = db_get_field_int(result, 0);
+				rows[i] = SQLRow:db_get_field_int(result, 0);
 				values[i] = db_get_field_float(result, 1);
 
 				++i;
@@ -1349,7 +1348,7 @@ stock yoursql_sort_float(SQL:id, const dest[], keys[], Float:values[], const con
 	return 0;
 }
 
-stock yoursql_filter_int(SQL:id, const dest[], keys[], values[], const condition[], limit = sizeof(keys))
+stock yoursql_filter_int(SQL:id, const dest[], SQLRow:rows[], values[], const condition[], limit = sizeof(rows))
 {
     if (! dest[0])
     {
@@ -1389,7 +1388,7 @@ stock yoursql_filter_int(SQL:id, const dest[], keys[], values[], const condition
 			;
 			do
 			{
-				keys[i] = db_get_field_int(result, 0);
+				rows[i] = SQLRow:db_get_field_int(result, 0);
 				values[i] = db_get_field_int(result, 1);
 
 				++i;
@@ -1407,7 +1406,7 @@ stock yoursql_filter_int(SQL:id, const dest[], keys[], values[], const condition
 	return 0;
 }
 
-stock yoursql_filter_float(SQL:id, const dest[], keys[], Float:values[], const condition[], limit = sizeof(keys))
+stock yoursql_filter_float(SQL:id, const dest[], SQLRow:rows[], Float:values[], const condition[], limit = sizeof(rows))
 {
     if (! dest[0])
     {
@@ -1447,7 +1446,7 @@ stock yoursql_filter_float(SQL:id, const dest[], keys[], Float:values[], const c
 			;
 			do
 			{
-				keys[i] = db_get_field_int(result, 0);
+				rows[i] = SQLRow:db_get_field_int(result, 0);
 				values[i] = db_get_field_int(result, 1);
 
 				++i;
