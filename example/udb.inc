@@ -127,7 +127,11 @@ stock udb_set_int(playerid = -1, name[] = "", const field[], set)
 	if (! yoursql_set_field_int(g_Database, dest, rowid, set))
 	{
 	    yoursql_verify_column(g_Database, dest, SQL_NUMBER);
+	    
+	    yoursql_set_field_int(g_Database, dest, rowid, set);
+	    return;
 	}
+	
 	yoursql_set_field_int(g_Database, dest, rowid, set);
 }
 
@@ -158,7 +162,11 @@ stock udb_set_float(playerid = -1, name[] = "", const field[], Float:set)
 	if (! yoursql_set_field_float(g_Database, dest, rowid, set))
 	{
 	    yoursql_verify_column(g_Database, dest, SQL_FLOAT);
+
+	    yoursql_set_field_float(g_Database, dest, rowid, set);
+	    return;
 	}
+	
 	yoursql_set_field_float(g_Database, dest, rowid, set);
 }
 
@@ -189,7 +197,11 @@ stock udb_set(playerid = -1, name[] = "", const field[], set[])
 	if (! yoursql_set_field(g_Database, dest, rowid, set))
 	{
 	    yoursql_verify_column(g_Database, dest, SQL_STRING);
+
+	    yoursql_set_field(g_Database, dest, rowid, set);
+	    return;
 	}
+	
 	yoursql_set_field(g_Database, dest, rowid, set);
 }
 
@@ -206,7 +218,7 @@ stock udb_get_int(playerid = -1, name[] = "", const field[])
 	return yoursql_get_field_int(g_Database, dest, yoursql_get_row(g_Database, "users", "name = %s", name));
 }
 
-stock Float:udb_get_float(playerid = -1, name[] = "", const field[])
+stock udb_get_float(playerid = -1, name[] = "", const field[])
 {
 	if (! name[0])
 	{
