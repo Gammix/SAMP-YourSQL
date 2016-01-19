@@ -116,17 +116,27 @@ stock udb_set_int(playerid = -1, name[] = "", const field[], set)
 	    GetPlayerName(playerid, name, MAX_PLAYER_NAME);
 	}
 
+	new dest[100];
+	strcat(dest, "users/");
+	strcat(dest, field);
+	
 	new SQLRow:rowid = yoursql_get_row(g_Database, "users", "name = %s", name);
 
 	if (rowid == SQL_INVALID_ROW)
 	{
+	    if (! yoursql_multiset_row(g_Database, "users", "si", "name", name, field, set))
+	    {
+	        yoursql_verify_column(g_Database, dest, SQL_NUMBER);
+	    }
+	    
 	    yoursql_multiset_row(g_Database, "users", "si", "name", name, field, set);
 	    return;
 	}
 
-	new dest[100];
-	strcat(dest, "users/");
-	strcat(dest, field);
+	if (! yoursql_set_field_int(g_Database, dest, rowid, set))
+	{
+	    yoursql_verify_column(g_Database, dest, SQL_NUMBER);
+	}
 	yoursql_set_field_int(g_Database, dest, rowid, set);
 }
 
@@ -137,17 +147,27 @@ stock udb_set_float(playerid = -1, name[] = "", const field[], Float:set)
 	    GetPlayerName(playerid, name, MAX_PLAYER_NAME);
 	}
 
+	new dest[100];
+	strcat(dest, "users/");
+	strcat(dest, field);
+
 	new SQLRow:rowid = yoursql_get_row(g_Database, "users", "name = %s", name);
 
 	if (rowid == SQL_INVALID_ROW)
 	{
+	    if (! yoursql_multiset_row(g_Database, "users", "sf", "name", name, field, set))
+	    {
+	        yoursql_verify_column(g_Database, dest, SQL_FLOAT);
+	    }
+	    
 	    yoursql_multiset_row(g_Database, "users", "sf", "name", name, field, set);
 	    return;
 	}
 
-	new dest[100];
-	strcat(dest, "users/");
-	strcat(dest, field);
+	if (! yoursql_set_field_float(g_Database, dest, rowid, set))
+	{
+	    yoursql_verify_column(g_Database, dest, SQL_FLOAT);
+	}
 	yoursql_set_field_float(g_Database, dest, rowid, set);
 }
 
@@ -158,17 +178,27 @@ stock udb_set(playerid = -1, name[] = "", const field[], set[])
 	    GetPlayerName(playerid, name, MAX_PLAYER_NAME);
 	}
 
+	new dest[100];
+	strcat(dest, "users/");
+	strcat(dest, field);
+
 	new SQLRow:rowid = yoursql_get_row(g_Database, "users", "name = %s", name);
 
 	if (rowid == SQL_INVALID_ROW)
 	{
+	    if (! yoursql_multiset_row(g_Database, "users", "ss", "name", name, field, set))
+	    {
+	        yoursql_verify_column(g_Database, dest, SQL_STRING);
+	    }
+
 	    yoursql_multiset_row(g_Database, "users", "ss", "name", name, field, set);
 	    return;
 	}
 
-	new dest[100];
-	strcat(dest, "users/");
-	strcat(dest, field);
+	if (! yoursql_set_field(g_Database, dest, rowid, set))
+	{
+	    yoursql_verify_column(g_Database, dest, SQL_STRING);
+	}
 	yoursql_set_field(g_Database, dest, rowid, set);
 }
 
