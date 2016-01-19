@@ -206,7 +206,7 @@ stock udb_get_int(playerid = -1, name[] = "", const field[])
 	return yoursql_get_field_int(g_Database, dest, yoursql_get_row(g_Database, "users", "name = %s", name));
 }
 
-stock udb_get_float(playerid = -1, name[] = "", const field[])
+stock Float:udb_get_float(playerid = -1, name[] = "", const field[])
 {
 	if (! name[0])
 	{
