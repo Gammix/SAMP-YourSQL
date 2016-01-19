@@ -100,15 +100,6 @@ public OnFilterScriptExit()
     forward udb_OnFilterScriptExit();
 #endif
 
-stock udb_add(const field[], SQLType:type)
-{
-	new dest[100];
-	strcat(dest, "users/");
-	strcat(dest, field);
-
-	yoursql_verify_column(g_Database, dest, type);
-}
-
 stock udb_set_int(playerid = -1, name[] = "", const field[], set)
 {
 	if (! name[0])
